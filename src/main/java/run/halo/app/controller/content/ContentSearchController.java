@@ -1,6 +1,5 @@
 package run.halo.app.controller.content;
 
-import cn.hutool.core.util.PageUtil;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -25,7 +24,7 @@ import static org.springframework.data.domain.Sort.Direction.DESC;
  * Search controller.
  *
  * @author ryanwang
- * @date : 2019-04-21
+ * @date 2019-04-21
  */
 @Controller
 @RequestMapping(value = "/search")
@@ -73,11 +72,11 @@ public class ContentSearchController {
 
         final Page<PostListVO> posts = postService.convertToListVo(postPage);
 
-        final int[] rainbow = PageUtil.rainbow(page, posts.getTotalPages(), 3);
         model.addAttribute("is_search", true);
         model.addAttribute("keyword", keyword);
         model.addAttribute("posts", posts);
-        model.addAttribute("rainbow", rainbow);
+        model.addAttribute("meta_keywords", optionService.getSeoKeywords());
+        model.addAttribute("meta_description", optionService.getSeoDescription());
         return themeService.render("search");
     }
 }

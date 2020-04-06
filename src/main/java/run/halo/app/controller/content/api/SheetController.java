@@ -8,34 +8,32 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.data.web.SortDefault;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.HtmlUtils;
 import run.halo.app.cache.lock.CacheLock;
 import run.halo.app.model.dto.BaseCommentDTO;
-import run.halo.app.model.dto.post.BasePostDetailDTO;
-import run.halo.app.model.dto.post.BasePostSimpleDTO;
 import run.halo.app.model.entity.Sheet;
 import run.halo.app.model.entity.SheetComment;
 import run.halo.app.model.enums.CommentStatus;
 import run.halo.app.model.enums.PostStatus;
 import run.halo.app.model.params.SheetCommentParam;
-import run.halo.app.model.vo.BaseCommentVO;
-import run.halo.app.model.vo.BaseCommentWithParentVO;
-import run.halo.app.model.vo.CommentWithHasChildrenVO;
+import run.halo.app.model.vo.*;
 import run.halo.app.service.OptionService;
 import run.halo.app.service.SheetCommentService;
 import run.halo.app.service.SheetService;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import static org.springframework.data.domain.Sort.Direction.DESC;
 
 /**
- * Sheet controller.
+ * Content sheet controller.
  *
  * @author johnniang
  * @author ryanwang
- * @date 19-4-26
+ * @date 2019-04-26
  */
-@RestController("PortalSheetController")
+@RestController("ApiContentSheetController")
 @RequestMapping("/api/content/sheets")
 public class SheetController {
 
@@ -53,17 +51,17 @@ public class SheetController {
 
     @GetMapping
     @ApiOperation("Lists sheets")
-    public Page<BasePostSimpleDTO> pageBy(@PageableDefault(sort = "createTime", direction = DESC) Pageable pageable) {
+    public Page<SheetListVO> pageBy(@PageableDefault(sort = "createTime", direction = DESC) Pageable pageable) {
         Page<Sheet> sheetPage = sheetService.pageBy(PostStatus.PUBLISHED, pageable);
-        return sheetService.convertToSimple(sheetPage);
+        return sheetService.convertToListVo(sheetPage);
     }
 
     @GetMapping("{sheetId:\\d+}")
     @ApiOperation("Gets a sheet")
-    public BasePostDetailDTO getBy(@PathVariable("sheetId") Integer sheetId,
-                                   @RequestParam(value = "formatDisabled", required = false, defaultValue = "true") Boolean formatDisabled,
-                                   @RequestParam(value = "sourceDisabled", required = false, defaultValue = "false") Boolean sourceDisabled) {
-        BasePostDetailDTO sheetDetailVO = sheetService.convertToDetail(sheetService.getById(sheetId));
+    public SheetDetailVO getBy(@PathVariable("sheetId") Integer sheetId,
+                               @RequestParam(value = "formatDisabled", required = false, defaultValue = "true") Boolean formatDisabled,
+                               @RequestParam(value = "sourceDisabled", required = false, defaultValue = "false") Boolean sourceDisabled) {
+        SheetDetailVO sheetDetailVO = sheetService.convertToDetailVo(sheetService.getById(sheetId));
 
         if (formatDisabled) {
             // Clear the format content
@@ -120,6 +118,9 @@ public class SheetController {
     @ApiOperation("Comments a post")
     @CacheLock(autoDelete = false, traceRequest = true)
     public BaseCommentDTO comment(@RequestBody SheetCommentParam sheetCommentParam) {
+
+        // Escape content
+        sheetCommentParam.setContent(HtmlUtils.htmlEscape(sheetCommentParam.getContent(), StandardCharsets.UTF_8.displayName()));
         return sheetCommentService.convertTo(sheetCommentService.createBy(sheetCommentParam));
     }
 }

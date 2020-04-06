@@ -7,13 +7,15 @@ import org.junit.Test;
 import java.util.stream.IntStream;
 
 import static org.hamcrest.Matchers.equalTo;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
 
 /**
  * Halo utilities test.
  *
  * @author johnniang
- * @date 3/29/19
+ * @author ryanwang
+ * @date 2019-03-29
  */
 @Slf4j
 public class HaloUtilsTest {
@@ -122,5 +124,34 @@ public class HaloUtilsTest {
     public void desensitizeFailureTest() {
         String plainText = " ";
         HaloUtils.desensitize(plainText, 1, 1);
+    }
+
+    @Test
+    public void compositeHttpUrl() {
+        String url = HaloUtils.compositeHttpUrl("https://halo.run", "path1", "path2");
+        assertEquals("https://halo.run/path1/path2", url);
+
+        url = HaloUtils.compositeHttpUrl("https://halo.run/", "path1", "path2");
+        assertEquals("https://halo.run/path1/path2", url);
+
+        url = HaloUtils.compositeHttpUrl("https://halo.run/", "/path1", "path2");
+        assertEquals("https://halo.run/path1/path2", url);
+
+        url = HaloUtils.compositeHttpUrl("https://halo.run/", "/path1/", "path2");
+        assertEquals("https://halo.run/path1/path2", url);
+
+        url = HaloUtils.compositeHttpUrl("https://halo.run/", "/path1/", "/path2/");
+        assertEquals("https://halo.run/path1/path2", url);
+    }
+
+    @Test
+    public void normalizeUrl() {
+        assertEquals("/2019/2/2/avatar.jpg", HaloUtils.normalizeUrl("/2019/2/2/avatar.jpg"));
+
+        assertEquals("http://cn.gravatar.com/avatar?d=mm", HaloUtils.normalizeUrl("//cn.gravatar.com/avatar?d=mm"));
+
+        assertEquals("http://cn.gravatar.com/avatar?d=mm", HaloUtils.normalizeUrl("cn.gravatar.com/avatar?d=mm"));
+
+        assertEquals("https://cn.gravatar.com/avatar?d=mm", HaloUtils.normalizeUrl("https://cn.gravatar.com/avatar?d=mm"));
     }
 }
