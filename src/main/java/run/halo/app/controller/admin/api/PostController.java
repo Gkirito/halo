@@ -3,25 +3,26 @@ package run.halo.app.controller.admin.api;
 import cn.hutool.core.util.IdUtil;
 import io.swagger.annotations.ApiOperation;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.data.web.SortDefault;
 import org.springframework.web.bind.annotation.*;
 import run.halo.app.cache.StringCacheStore;
+import run.halo.app.model.dto.post.BasePostDetailDTO;
 import run.halo.app.model.dto.post.BasePostMinimalDTO;
 import run.halo.app.model.dto.post.BasePostSimpleDTO;
 import run.halo.app.model.entity.Post;
 import run.halo.app.model.enums.PostStatus;
+import run.halo.app.model.params.PostContentParam;
 import run.halo.app.model.params.PostParam;
 import run.halo.app.model.params.PostQuery;
 import run.halo.app.model.vo.PostDetailVO;
-import run.halo.app.model.vo.PostListVO;
 import run.halo.app.service.OptionService;
 import run.halo.app.service.PostService;
 
 import javax.validation.Valid;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -33,7 +34,7 @@ import static org.springframework.data.domain.Sort.Direction.DESC;
  * @author johnniang
  * @author ryanwang
  * @author guqing
- * @date 3/19/19
+ * @date 2019-03-19
  */
 @RestController
 @RequestMapping("/api/admin/posts")
@@ -55,15 +56,15 @@ public class PostController {
 
     @GetMapping
     @ApiOperation("Lists posts")
-    public Page<PostListVO> pageBy(Integer page, Integer size,
-                                   @SortDefault.SortDefaults({
-                                           @SortDefault(sort = "topPriority", direction = DESC),
-                                           @SortDefault(sort = "createTime", direction = DESC)
-                                   }) Sort sort,
-                                   PostQuery postQuery) {
-        Pageable pageable = PageRequest.of(page, size, sort);
+    public Page<? extends BasePostSimpleDTO> pageBy(@PageableDefault(sort = {"topPriority", "createTime"}, direction = DESC) Pageable pageable,
+                                                    PostQuery postQuery,
+                                                    @RequestParam(value = "more", defaultValue = "true") Boolean more) {
         Page<Post> postPage = postService.pageBy(postQuery, pageable);
-        return postService.convertToListVo(postPage);
+        if (more) {
+            return postService.convertToListVo(postPage);
+        }
+
+        return postService.convertToSimple(postPage);
     }
 
     @GetMapping("latest")
@@ -87,6 +88,7 @@ public class PostController {
     }
 
     @GetMapping("{postId:\\d+}")
+    @ApiOperation("Gets a post")
     public PostDetailVO getBy(@PathVariable("postId") Integer postId) {
         Post post = postService.getById(postId);
         return postService.convertToDetailVo(post);
@@ -99,6 +101,7 @@ public class PostController {
     }
 
     @PostMapping
+    @ApiOperation("Creates a post")
     public PostDetailVO createBy(@Valid @RequestBody PostParam postParam,
                                  @RequestParam(value = "autoSave", required = false, defaultValue = "false") Boolean autoSave) {
         // Convert to
@@ -107,6 +110,7 @@ public class PostController {
     }
 
     @PutMapping("{postId:\\d+}")
+    @ApiOperation("Updates a post")
     public PostDetailVO updateBy(@Valid @RequestBody PostParam postParam,
                                  @PathVariable("postId") Integer postId,
                                  @RequestParam(value = "autoSave", required = false, defaultValue = "false") Boolean autoSave) {
@@ -118,34 +122,56 @@ public class PostController {
     }
 
     @PutMapping("{postId:\\d+}/status/{status}")
-    public void updateStatusBy(
+    @ApiOperation("Updates post status")
+    public BasePostMinimalDTO updateStatusBy(
             @PathVariable("postId") Integer postId,
             @PathVariable("status") PostStatus status) {
-        Post post = postService.getById(postId);
+        Post post = postService.updateStatus(status, postId);
 
-        // Set status
-        post.setStatus(status);
+        return new BasePostMinimalDTO().convertFrom(post);
+    }
 
-        // Update
-        postService.update(post);
+    @PutMapping("status/{status}")
+    @ApiOperation("Updates post status in batch")
+    public List<Post> updateStatusInBatch(@PathVariable(name = "status") PostStatus status,
+                                          @RequestBody List<Integer> ids) {
+        return postService.updateStatusByIds(ids, status);
+    }
+
+    @PutMapping("{postId:\\d+}/status/draft/content")
+    @ApiOperation("Updates draft")
+    public BasePostDetailDTO updateDraftBy(
+            @PathVariable("postId") Integer postId,
+            @RequestBody PostContentParam contentParam) {
+        // Update draft content
+        Post post = postService.updateDraftContent(contentParam.getContent(), postId);
+
+        return new BasePostDetailDTO().convertFrom(post);
     }
 
     @DeleteMapping("{postId:\\d+}")
+    @ApiOperation("Deletes a photo permanently")
     public void deletePermanently(@PathVariable("postId") Integer postId) {
-        // Remove it
         postService.removeById(postId);
     }
 
-    @GetMapping("preview/{postId:\\d+}")
-    public String preview(@PathVariable("postId") Integer postId) {
+    @DeleteMapping
+    @ApiOperation("Deletes posts permanently in batch by id array")
+    public List<Post> deletePermanentlyInBatch(@RequestBody List<Integer> ids) {
+        return postService.removeByIds(ids);
+    }
+
+    @GetMapping(value = {"preview/{postId:\\d+}", "{postId:\\d+}/preview"})
+    @ApiOperation("Gets a post preview link")
+    public String preview(@PathVariable("postId") Integer postId) throws UnsupportedEncodingException {
         Post post = postService.getById(postId);
 
         String token = IdUtil.simpleUUID();
 
         // cache preview token
-        cacheStore.putAny("preview-post-token-" + postId, token, 10, TimeUnit.MINUTES);
+        cacheStore.putAny(token, token, 10, TimeUnit.MINUTES);
 
         // build preview post url and return
-        return String.format("%s/archives/%s?preview=true&token=%s", optionService.getBlogBaseUrl(), post.getUrl(), token);
+        return String.format("%s/archives/%s?token=%s", optionService.getBlogBaseUrl(), URLEncoder.encode(post.getUrl(), StandardCharsets.UTF_8.name()), token);
     }
 }

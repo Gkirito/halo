@@ -46,6 +46,7 @@ public class SheetCommentController {
     }
 
     @GetMapping
+    @ApiOperation("Lists sheet comments")
     public Page<SheetCommentWithSheetVO> pageBy(@PageableDefault(sort = "updateTime", direction = DESC) Pageable pageable,
                                                 CommentQuery commentQuery) {
         Page<SheetComment> sheetCommentPage = sheetCommentService.pageBy(commentQuery, pageable);
@@ -53,6 +54,7 @@ public class SheetCommentController {
     }
 
     @GetMapping("latest")
+    @ApiOperation("Lists latest sheet comments")
     public List<SheetCommentWithSheetVO> listLatest(@RequestParam(name = "top", defaultValue = "10") int top,
                                                     @RequestParam(name = "status", required = false) CommentStatus status) {
         Page<SheetComment> sheetCommentPage = sheetCommentService.pageLatest(top, status);
@@ -60,15 +62,15 @@ public class SheetCommentController {
     }
 
     @GetMapping("{sheetId:\\d+}/tree_view")
-    @ApiOperation("Lists comments with tree view")
+    @ApiOperation("Lists sheet comments with tree view")
     public Page<BaseCommentVO> listCommentTree(@PathVariable("sheetId") Integer sheetId,
                                                @RequestParam(name = "page", required = false, defaultValue = "0") int page,
                                                @SortDefault(sort = "createTime", direction = DESC) Sort sort) {
-        return sheetCommentService.pageVosBy(sheetId, PageRequest.of(page, optionService.getCommentPageSize(), sort));
+        return sheetCommentService.pageVosAllBy(sheetId, PageRequest.of(page, optionService.getCommentPageSize(), sort));
     }
 
     @GetMapping("{sheetId:\\d+}/list_view")
-    @ApiOperation("Lists comment with list view")
+    @ApiOperation("Lists sheet comment with list view")
     public Page<BaseCommentWithParentVO> listComments(@PathVariable("sheetId") Integer sheetId,
                                                       @RequestParam(name = "page", required = false, defaultValue = "0") int page,
                                                       @SortDefault(sort = "createTime", direction = DESC) Sort sort) {
@@ -76,14 +78,14 @@ public class SheetCommentController {
     }
 
     @PostMapping
-    @ApiOperation("Creates a comment (new or reply)")
+    @ApiOperation("Creates a sheet comment (new or reply)")
     public BaseCommentDTO createBy(@RequestBody SheetCommentParam commentParam) {
         SheetComment createdComment = sheetCommentService.createBy(commentParam);
         return sheetCommentService.convertTo(createdComment);
     }
 
     @PutMapping("{commentId:\\d+}/status/{status}")
-    @ApiOperation("Updates comment status")
+    @ApiOperation("Updates sheet comment status")
     public BaseCommentDTO updateStatusBy(@PathVariable("commentId") Long commentId,
                                          @PathVariable("status") CommentStatus status) {
         // Update comment status
@@ -91,21 +93,37 @@ public class SheetCommentController {
         return sheetCommentService.convertTo(updatedSheetComment);
     }
 
+    @PutMapping("status/{status}")
+    @ApiOperation("Updates sheet comment status in batch")
+    public List<BaseCommentDTO> updateStatusInBatch(@PathVariable(name = "status") CommentStatus status,
+                                                    @RequestBody List<Long> ids) {
+        List<SheetComment> comments = sheetCommentService.updateStatusByIds(ids, status);
+        return sheetCommentService.convertTo(comments);
+    }
+
+
     @DeleteMapping("{commentId:\\d+}")
-    @ApiOperation("Deletes comment permanently and recursively")
-    public BaseCommentDTO deleteBy(@PathVariable("commentId") Long commentId) {
+    @ApiOperation("Deletes sheet comment permanently and recursively")
+    public BaseCommentDTO deletePermanently(@PathVariable("commentId") Long commentId) {
         SheetComment deletedSheetComment = sheetCommentService.removeById(commentId);
         return sheetCommentService.convertTo(deletedSheetComment);
     }
 
+    @DeleteMapping
+    @ApiOperation("Deletes sheet comments permanently in batch by id array")
+    public List<SheetComment> deletePermanentlyInBatch(@RequestBody List<Long> ids) {
+        return sheetCommentService.removeByIds(ids);
+    }
+
     @GetMapping("{commentId:\\d+}")
-    @ApiOperation("Gets a post comment by comment id")
+    @ApiOperation("Gets a sheet comment by comment id")
     public SheetCommentWithSheetVO getBy(@PathVariable("commentId") Long commentId) {
         SheetComment comment = sheetCommentService.getById(commentId);
         return sheetCommentService.convertToWithSheetVo(comment);
     }
 
     @PutMapping("{commentId:\\d+}")
+    @ApiOperation("Updates a sheet comment")
     public BaseCommentDTO updateBy(@Valid @RequestBody SheetCommentParam commentParam,
                                    @PathVariable("commentId") Long commentId) {
         SheetComment commentToUpdate = sheetCommentService.getById(commentId);

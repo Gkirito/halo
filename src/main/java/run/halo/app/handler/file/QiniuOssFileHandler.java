@@ -22,6 +22,7 @@ import run.halo.app.model.support.QiNiuPutSet;
 import run.halo.app.model.support.UploadResult;
 import run.halo.app.service.OptionService;
 import run.halo.app.utils.FilenameUtils;
+import run.halo.app.utils.ImageUtils;
 import run.halo.app.utils.JsonUtils;
 
 import java.io.IOException;
@@ -32,7 +33,7 @@ import java.util.Objects;
 import static run.halo.app.handler.file.FileHandler.isImageType;
 
 /**
- * Qi niu yun file handler.
+ * Qiniu oss file handler.
  *
  * @author johnniang
  * @author ryanwang
@@ -59,6 +60,7 @@ public class QiniuOssFileHandler implements FileHandler {
         String bucket = optionService.getByPropertyOfNonNull(QiniuOssProperties.OSS_BUCKET).toString();
         String protocol = optionService.getByPropertyOfNonNull(QiniuOssProperties.OSS_PROTOCOL).toString();
         String domain = optionService.getByPropertyOfNonNull(QiniuOssProperties.OSS_DOMAIN).toString();
+        String source = optionService.getByPropertyOrDefault(QiniuOssProperties.OSS_SOURCE, String.class, "");
         String styleRule = optionService.getByPropertyOrDefault(QiniuOssProperties.OSS_STYLE_RULE, String.class, "");
         String thumbnailStyleRule = optionService.getByPropertyOrDefault(QiniuOssProperties.OSS_THUMBNAIL_STYLE_RULE, String.class, "");
 
@@ -80,16 +82,31 @@ public class QiniuOssFileHandler implements FileHandler {
         // Create temp path
         Path tmpPath = Paths.get(System.getProperty("java.io.tmpdir"), bucket);
 
+        StringBuilder basePath = new StringBuilder(protocol)
+                .append(domain)
+                .append("/");
+
         try {
             String basename = FilenameUtils.getBasename(file.getOriginalFilename());
             String extension = FilenameUtils.getExtension(file.getOriginalFilename());
+            String timestamp = String.valueOf(System.currentTimeMillis());
+            StringBuilder upFilePath = new StringBuilder();
+            if (StringUtils.isNotEmpty(source)) {
+                upFilePath.append(source)
+                        .append("/");
+            }
+            upFilePath.append(basename)
+                    .append("_")
+                    .append(timestamp)
+                    .append(".")
+                    .append(extension);
 
             // Get file recorder for temp directory
             FileRecorder fileRecorder = new FileRecorder(tmpPath.toFile());
             // Get upload manager
             UploadManager uploadManager = new UploadManager(configuration, fileRecorder);
             // Put the file
-            Response response = uploadManager.put(file.getInputStream(), null, uploadToken, null, null);
+            Response response = uploadManager.put(file.getInputStream(), upFilePath.toString(), uploadToken, null, null);
 
             log.debug("QnYun response: [{}]", response.toString());
             log.debug("QnYun response body: [{}]", response.bodyString());
@@ -100,13 +117,13 @@ public class QiniuOssFileHandler implements FileHandler {
             QiNiuPutSet putSet = JsonUtils.jsonToObject(response.bodyString(), QiNiuPutSet.class);
 
             // Get file full path
-            String filePath = protocol + StringUtils.appendIfMissing(domain, "/") + putSet.getHash();
+            String filePath = StringUtils.join(basePath.toString(), upFilePath.toString());
 
             // Build upload result
             UploadResult result = new UploadResult();
             result.setFilename(basename);
             result.setFilePath(StringUtils.isBlank(styleRule) ? filePath : filePath + styleRule);
-            result.setKey(putSet.getKey());
+            result.setKey(upFilePath.toString());
             result.setSuffix(extension);
             result.setWidth(putSet.getWidth());
             result.setHeight(putSet.getHeight());
@@ -114,7 +131,11 @@ public class QiniuOssFileHandler implements FileHandler {
             result.setSize(file.getSize());
 
             if (isImageType(result.getMediaType())) {
-                result.setThumbPath(StringUtils.isBlank(thumbnailStyleRule) ? filePath : filePath + thumbnailStyleRule);
+                if (ImageUtils.EXTENSION_ICO.equals(extension)) {
+                    result.setThumbPath(filePath);
+                } else {
+                    result.setThumbPath(StringUtils.isBlank(thumbnailStyleRule) ? filePath : filePath + thumbnailStyleRule);
+                }
             }
 
             return result;

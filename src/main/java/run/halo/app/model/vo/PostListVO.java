@@ -2,8 +2,8 @@ package run.halo.app.model.vo;
 
 import lombok.Data;
 import lombok.EqualsAndHashCode;
+import run.halo.app.model.dto.BaseMetaDTO;
 import run.halo.app.model.dto.CategoryDTO;
-import run.halo.app.model.dto.PostMetaDTO;
 import run.halo.app.model.dto.TagDTO;
 import run.halo.app.model.dto.post.BasePostSimpleDTO;
 
@@ -14,6 +14,7 @@ import java.util.List;
  *
  * @author johnniang
  * @author guqing
+ * @author ryanwang
  * @date 2019-03-19
  */
 @EqualsAndHashCode(callSuper = true)
@@ -26,5 +27,5 @@ public class PostListVO extends BasePostSimpleDTO {
 
     private List<CategoryDTO> categories;
 
-    private List<PostMetaDTO> postMetas;
+    private List<BaseMetaDTO> postMetas;
 }

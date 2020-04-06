@@ -211,8 +211,11 @@ public class FileUtils {
         try (Stream<Path> pathStream = Files.list(unzippedPath)) {
             List<Path> childrenPath = pathStream.collect(Collectors.toList());
 
-            if (childrenPath.size() == 1 && Files.isDirectory(childrenPath.get(0))) {
-                return childrenPath.get(0);
+            Path realPath = childrenPath.get(0);
+            if (childrenPath.size() == 1 && Files.isDirectory(realPath)) {
+                // Check directory traversal
+                checkDirectoryTraversal(unzippedPath, realPath);
+                return realPath;
             }
             return unzippedPath;
         }
@@ -296,7 +299,7 @@ public class FileUtils {
         Assert.notNull(parentPath, "Parent path must not be null");
         Assert.notNull(pathToCheck, "Path to check must not be null");
 
-        if (pathToCheck.startsWith(parentPath.normalize())) {
+        if (pathToCheck.normalize().startsWith(parentPath)) {
             return;
         }
 
